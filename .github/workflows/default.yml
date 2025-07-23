@@ -1,0 +1,33 @@
+name: default
+run-name: executing default workflow
+on:
+  - push
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+          cache: 'maven'
+      - run: ./mvnw -B -Djansi.force=true -ntp -U clean package
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+          cache: 'maven'
+      - run:
+          ./mvnw -B -Djansi.force=true -ntp -U clean help:effective-settings deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
