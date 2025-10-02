@@ -6,13 +6,7 @@ import io.undertow.server.HttpHandler;
 import io.undertow.server.HttpServerExchange;
 import lombok.experimental.UtilityClass;
 import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.ThreadContext;
 import org.xnio.Options;
-
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 @UtilityClass
 public class UndertowAppUtils {
@@ -51,35 +45,17 @@ public class UndertowAppUtils {
 
   }
 
-  public static ExecutorService createHandlerExecutor(final int corePoolSize) {
+  public static boolean shouldDispatchToWorkerThread(final HttpServerExchange httpServerExchange,
+                                                     final HttpHandler        httpHandler) {
 
-    return
-      new ThreadPoolExecutor(
-        corePoolSize,
-        corePoolSize * 2,
-        KEEP_ALIVE_TIME,
-        TimeUnit.MILLISECONDS,
-        new LinkedBlockingQueue<>(corePoolSize * 2),
-        new ThreadPoolExecutor.CallerRunsPolicy());
+    if (httpServerExchange.isInIoThread()) {
 
-  }
+      httpServerExchange.dispatch(httpHandler);
+      return true;
 
-  /**
-   * Execute the common setup to the handler.
-   * @param httpServerExchange Instance of the type {@link HttpServerExchange} for the response's flushing.
-   * @return Value of the {@link UndertowHeaderUtils#X_TRACE_ID}.
-   */
-  public static String setupHandler(final HttpServerExchange httpServerExchange) {
+    }
 
-    final var traceId = UndertowHeaderUtils.retrieveTraceId(httpServerExchange);
-
-    ThreadContext.put(UndertowHeaderUtils.X_TRACE_ID, traceId);
-
-    UndertowHeaderUtils.defaultResponseContentType(httpServerExchange);
-
-    UndertowHeaderUtils.noCache(httpServerExchange);
-
-    return traceId;
+    return false;
 
   }
 

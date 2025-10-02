@@ -24,10 +24,16 @@ public enum UndertowApplicationProperties {
   /**
    * Pattern to match environment variable placeholders in the format ${VAR_NAME:default_value}.
    */
-  private static final Pattern ENV_VAR_PATTERN = Pattern.compile("\\$\\{([^}:]+)(?::([^}]*))?\\}");
+  private static final String ENV_VAR_REGEX = "\\$\\{([^}:]+)(?::([^}]*))?\\}";
 
+  /**
+   * Group index for the environment variable name in the regex pattern.
+   */
   private static final int ENV_VAR_NAME_GROUP = 1;
 
+  /**
+   * Group index for the default value in the regex pattern.
+   */
   private static final int DEFAULT_VALUE_GROUP = 2;
 
   /**
@@ -41,9 +47,16 @@ public enum UndertowApplicationProperties {
 
   }
 
+  /**
+   * Properties instance containing the application properties.
+   */
   @Getter
   private final Properties instance = initialize();
 
+  /**
+   * Initializes the application properties by loading them from the {#DEFAUL_PATH}.
+   * @return Properties instance with the loaded and resolved properties.
+   */
   private Properties initialize() {
 
     try (final var inputStream = UndertowApplicationProperties.class.getResourceAsStream(DEFAULT_PATH)) {
@@ -68,24 +81,38 @@ public enum UndertowApplicationProperties {
 
   }
 
+  /**
+   * Resolves environment variable placeholders in the properties values.
+   * @param properties {@link Properties} instance containing the entries to resolve.
+   * @return The same {@link Properties} instance with environment variable placeholders resolved.
+   */
   private Properties resolveEnvVarsValues(final Properties properties) {
+
+    final var pattern = Pattern.compile(ENV_VAR_REGEX);
 
     properties.forEach(
       (key, value) -> properties.setProperty(
         key.toString(),
         Optional
           .ofNullable(value)
-          .map(this::resolveEnvVarValue)
+          .map(v -> resolveEnvVarValue(v, pattern))
           .orElse(null)));
 
     return properties;
 
   }
 
-  private String resolveEnvVarValue(final Object value) {
+  /**
+   * Resolves the value of an environment variable placeholder.
+   * If the environment variable is not set, it returns the default value if provided.
+   * @param value The value containing the environment variable placeholder.
+   * @return The resolved value of the environment variable or the default value.
+   */
+  private String resolveEnvVarValue(final Object  value,
+                                    final Pattern pattern) {
 
     return
-      ENV_VAR_PATTERN
+      pattern
         .matcher(value.toString())
         .replaceAll(match -> {
 

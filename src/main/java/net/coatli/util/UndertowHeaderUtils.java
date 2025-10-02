@@ -24,6 +24,11 @@ public class UndertowHeaderUtils {
   public static final String APPLICATION_JSON_UTF8 = "application/json; charset=utf-8";
 
   /**
+   * MIME type <strong>text/plain</strong> with <strong>UTF-8</strong> charset.
+   */
+  public static final String TEXT_PLAIN_UTF8 = "text/plain; charset=utf-8";
+
+  /**
    * Custom header for the <strong>trace unique identifier</strong>.
    */
   public static final String X_TRACE_ID = "X-T";
