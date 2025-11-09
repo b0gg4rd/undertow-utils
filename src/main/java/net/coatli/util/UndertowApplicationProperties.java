@@ -2,8 +2,10 @@ package net.coatli.util;
 
 import lombok.Getter;
 
+import java.io.InputStream;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 /**
@@ -59,75 +61,78 @@ public enum UndertowApplicationProperties {
    */
   private Properties initialize() {
 
-    try (final var inputStream = UndertowApplicationProperties.class.getResourceAsStream(DEFAULT_PATH)) {
+    return
+      Optional
+        .ofNullable(UndertowApplicationProperties.class.getResourceAsStream(DEFAULT_PATH))
+        .map(load(new Properties()))
+        .map(resolveEnvVarsValues())
+        .orElseThrow(() ->new IllegalStateException(StringTemplate.STR."Could not find application properties file at \{DEFAULT_PATH}"));
 
-      if (null == inputStream) {
+  }
 
-        throw new IllegalStateException(StringTemplate.STR."Could not find application properties file at \{DEFAULT_PATH}");
+  /**
+   * Loads properties from the given {@link InputStream} into the provided {@link Properties} instance.
+   * @param properties {@link Properties} instance to load the entries into.
+   * @return {@link Function} that takes an {@link InputStream} and returns the loaded {@link Properties} instance.
+   */
+  private Function<InputStream, Properties> load(final Properties properties) {
 
-      }
+    return
+      (inputStream) -> {
 
-      final var properties = new Properties();
+        try (inputStream) {
 
-      properties.load(inputStream);
+          properties.load(inputStream);
 
-      return resolveEnvVarsValues(properties);
+          return properties;
 
-    } catch (final Exception exception) {
+        } catch (final Exception exception) {
 
-      throw new IllegalStateException("Failed to load application properties", exception);
+          throw new IllegalStateException("Failed to load application properties", exception);
 
-    }
+        }
+
+      };
 
   }
 
   /**
    * Resolves environment variable placeholders in the properties values.
-   * @param properties {@link Properties} instance containing the entries to resolve.
-   * @return The same {@link Properties} instance with environment variable placeholders resolved.
+   * @return {@link Function} that takes a {@link Properties} instance to resolve the environment variable placeholders
+   * and return the same {@link Properties} instance.
    */
-  private Properties resolveEnvVarsValues(final Properties properties) {
+  private Function<Properties, Properties> resolveEnvVarsValues() {
 
-    final var pattern = Pattern.compile(ENV_VAR_REGEX);
+    return
+      (properties) -> {
 
-    properties.forEach(
-      (key, value) -> properties.setProperty(
-        key.toString(),
-        Optional
-          .ofNullable(value)
-          .map(v -> resolveEnvVarValue(v, pattern))
-          .orElse(null)));
+        properties.forEach(
+          (key, value) -> properties.setProperty(
+            key.toString(),
+            Optional
+              .ofNullable(value)
+              .map(resolveEnvVarValue())
+              .orElse(null)));
 
-    return properties;
+        return properties;
+
+      };
 
   }
 
   /**
-   * Resolves the value of an environment variable placeholder.
-   * If the environment variable is not set, it returns the default value if provided.
-   * @param value The value containing the environment variable placeholder.
-   * @return The resolved value of the environment variable or the default value.
+   * Resolves environment variable placeholders in a given value.
+   * @return {@link Function} that takes an {@link Object} value and returns the resolved {@link String} value.
    */
-  private String resolveEnvVarValue(final Object  value,
-                                    final Pattern pattern) {
+  private Function<Object, String> resolveEnvVarValue() {
 
     return
-      pattern
+      value -> Pattern
+        .compile(ENV_VAR_REGEX)
         .matcher(value.toString())
-        .replaceAll(match -> {
-
-          final var envVarName = match.group(ENV_VAR_NAME_GROUP);
-
-          final var defaultValue = match.group(DEFAULT_VALUE_GROUP);
-
-          final var envVarValue = System.getenv(envVarName);
-
-          return
-            null != envVarValue
-              ? envVarValue
-              : (null != defaultValue ? defaultValue : null);
-
-        });
+        .replaceAll(match -> Optional
+          .ofNullable(System.getenv(match.group(ENV_VAR_NAME_GROUP)))
+          .orElse(match.group(DEFAULT_VALUE_GROUP)));
 
   }
 
