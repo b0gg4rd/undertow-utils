@@ -28,6 +28,6 @@ jobs:
           java-version: '21'
           cache: 'maven'
       - run:
-          ./mvnw -B -Djansi.force=true -ntp -U clean help:effective-settings deploy
+          ./mvnw -B -Djansi.force=true -ntp -U clean deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
